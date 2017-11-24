@@ -98,6 +98,8 @@ public:
         static void SumDiff(const FastTemplate_t<T> &h1, const FastTemplate_t<T> &h2, FastTemplate_t<T> &sum, FastTemplate_t<T> &diff);
         /// Does this += x * (diff + (sum)*y)
         void Meld(const FastTemplate_t<T> & diff, const FastTemplate_t<T> & sum, T x, T y);
+        /// Applies the difference between the new and the old melds
+        void DiffMeld(const FastTemplate & diff, const FastTemplate & sum, T xNew, T yNew, T xOld, T yOld) ;
         /// protect from underflows (*this = max(*this, minimum));
         void CropUnderflows(T minimum=1e-9, bool activebinsonly=true);
 
