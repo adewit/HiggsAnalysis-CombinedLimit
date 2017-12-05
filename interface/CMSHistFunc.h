@@ -144,7 +144,9 @@ class CMSHistFunc : public RooAbsReal {
 
   RooAbsReal const& getXVar() const;
 
+  static void EnableFastVertical();
   friend class CMSHistV<CMSHistFunc>;
+
 
   /*
 
@@ -184,6 +186,8 @@ class CMSHistFunc : public RooAbsReal {
 
   mutable bool fast_vertical_; //! not to be serialized
   mutable std::vector<double> vertical_prev_vals_; //! not to be serialized
+
+  static bool enable_fast_vertical_; //! not to be serialized
 
  private:
   void initialize() const;
