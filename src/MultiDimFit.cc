@@ -143,6 +143,7 @@ void MultiDimFit::applyOptions(const boost::program_options::variables_map &vm)
 }
 
 bool MultiDimFit::runSpecific(RooWorkspace *w, RooStats::ModelConfig *mc_s, RooStats::ModelConfig *mc_b, RooAbsData &data, double &limit, double &limitErr, const double *hint) { 
+    std::cout<<"RSS : before making NLL : "<<getCurrentRSS()<<std::endl;
     // one-time initialization of POI variables, TTree branches, ...
     Combine::toggleGlobalFillTree(true);
 
@@ -279,6 +280,7 @@ bool MultiDimFit::runSpecific(RooWorkspace *w, RooStats::ModelConfig *mc_s, RooS
             }
 	  }
           if(res.get() && saveFitResult_) saveResult(*res);
+          std::cout<<"RSS : before end mdf : "<<getCurrentRSS()<<std::endl;
           break;
         case Singles: if (res.get()) { doSingles(*res); if (saveFitResult_) {saveResult(*res);} } break;
         case Cross: doBox(*nll, cl, "box", true); break;

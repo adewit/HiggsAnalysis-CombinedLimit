@@ -9,6 +9,7 @@
  *
  */
 #include <boost/program_options.hpp>
+#include "HiggsAnalysis/CombinedLimit/interface/ProfilingTools.h"
 #include <string>
 class RooWorkspace;
 class RooAbsData;

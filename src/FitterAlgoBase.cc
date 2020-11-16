@@ -219,8 +219,12 @@ RooFitResult *FitterAlgoBase::doFit(RooAbsPdf &pdf, RooAbsData &data, const RooA
     if (reuseNLL && nll.get() != 0 && !forceRecreateNLL_) {
         ((cacheutils::CachingSimNLL&)(*nll)).setData(data); // reuse nll but swap out the data
     } else {
+        std::cout<<"RSS : before making NLL in FitterAlgoBase : "<<getCurrentRSS()<<std::endl;
+        igProfDumpNowWithName("beforeNLL");
         nll.reset(); // first delete the old one, to avoid using more memory, even if temporarily
         nll.reset(pdf.createNLL(data, constrain, RooFit::Extended(pdf.canBeExtended()), RooFit::Offset(true))); // make a new nll
+        std::cout<<"RSS : after making NLL in FitterAlgoBase : "<<getCurrentRSS()<<std::endl;
+        igProfDumpNowWithName("afterNLL");
     }
    
     double nll0 = nll->getVal();
@@ -234,6 +238,7 @@ RooFitResult *FitterAlgoBase::doFit(RooAbsPdf &pdf, RooAbsData &data, const RooA
     double delta68 = 0.5*ROOT::Math::chisquared_quantile_c(1-0.68,ndim);
     double delta95 = 0.5*ROOT::Math::chisquared_quantile_c(1-0.95,ndim);
     CascadeMinimizer minim(*nll, CascadeMinimizer::Unconstrained, rs.getSize() ? dynamic_cast<RooRealVar*>(rs.first()) : 0);
+    std::cout<<"RSS : after making CascadeMinimizer : "<<getCurrentRSS()<<std::endl;
     //minim.setStrategy(minimizerStrategy_);
     minim.setErrorLevel(delta68);
     if (!autoBoundsPOIs_.empty()) minim.setAutoBounds(&autoBoundsPOISet_); 
@@ -243,6 +248,8 @@ RooFitResult *FitterAlgoBase::doFit(RooAbsPdf &pdf, RooAbsData &data, const RooA
     TStopwatch tw; 
     if (verbose) tw.Start();
     bool ok = minim.minimize(verbose);
+    std::cout<<"RSS : after minimizing : "<<getCurrentRSS()<<std::endl;
+    igProfDumpNowWithName("afterminimize");
     if (verbose>1) {
        std::cout << "Minimized in : " ; tw.Print();
     }

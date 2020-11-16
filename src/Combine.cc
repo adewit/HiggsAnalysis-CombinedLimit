@@ -303,10 +303,19 @@ void Combine::run(TString hlfFile, const std::string &dataset, double &limit, do
   std::auto_ptr<RooStats::HLFactory> hlf(0);
 
   if (isBinary) {
+    std::cout<<"RSS : before file open : "<<getCurrentRSS()<<std::endl;
     TFile *fIn = TFile::Open(fileToLoad); 
     garbageCollect.tfile = fIn; // request that we close this file when done
 
+    igProfDumpNowWithName("afterfopen");
+
+    std::cout<<"RSS : after file open : "<<getCurrentRSS()<<std::endl;
+
     w = dynamic_cast<RooWorkspace *>(fIn->Get(workspaceName_.c_str()));
+
+    igProfDumpNowWithName("afterws");
+
+    std::cout<<"RSS : after workspace : "<<getCurrentRSS()<<std::endl;
 
     if (fIn->GetCacheRead()) {
       fIn->GetCacheRead()->Close();

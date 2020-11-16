@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include <signal.h>
+#include <iostream>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -13,13 +14,23 @@
 void (*igProfRequestDump_)(const char *);
 int igProfDumpNumber_ = 0;
 
-void igProfDumpNow(int) {
+void igProfDumpNow() {
     char buff[50];
     igProfDumpNumber_++;
     sprintf(buff,"dump.%d.%d.out.gz", getpid(), igProfDumpNumber_);
     igProfRequestDump_(buff);
     fprintf(stderr, "Dumped to %s\n", buff); fflush(stderr);
 }
+
+void igProfDumpNowWithName(const char* name) {
+    if (igProfRequestDump_){
+        char buff[50];
+        sprintf(buff,"dump.%s.out.gz", name);
+        igProfRequestDump_(buff);
+        fprintf(stderr, "Dumped to %s\n", buff); fflush(stderr);
+    }
+}
+
 
 bool setupIgProfDumpHook() {
     if (void *sym = dlsym(0, "igprof_dump_now")) {
@@ -31,8 +42,22 @@ bool setupIgProfDumpHook() {
         fflush(stderr);
         return false;
     }
-    signal(SIGUSR2,igProfDumpNow);
+    //signal(SIGUSR2,igProfDumpNow);
     return true;
+}
+
+size_t getCurrentRSS() {
+    long rss = 0L;
+    FILE* fp = NULL;
+    if ( (fp = fopen( "/proc/self/statm", "r" )) == NULL )
+        return (size_t)0L;      /* Can't open? */
+    if ( fscanf( fp, "%*s%ld", &rss ) != 1 )
+    {
+        fclose( fp );
+        return (size_t)0L;      /* Can't read? */
+    }
+    fclose( fp );
+    return (size_t)rss * (size_t)sysconf( _SC_PAGESIZE);
 }
 
 

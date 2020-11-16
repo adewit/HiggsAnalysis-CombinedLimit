@@ -4,6 +4,12 @@
 
 bool setupIgProfDumpHook() ;
 
+void igProfDumpNow();
+
+void igProfDumpNowWithName(const char* name);
+
+size_t getCurrentRSS();
+
 //#include <boost/unordered_map.hpp>
 class PerfCounter {
     public:
