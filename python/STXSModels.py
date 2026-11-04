@@ -234,6 +234,8 @@ class StageZeroRatio(STXSBaseModel):
                     if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
                         self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
                         pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
+                        #Need to reparameterize Gammabb/GammaZZ as Gammabb/GammaZZ*(1+sum an((mb/2.787)^n-1))
+                        #with a1= -0.07086, a2=1.144, a3=-0.1361, a4=0.06038, a5=-0.01167
 
         print(pois)
         self.POIs = ",".join(pois)
@@ -279,6 +281,95 @@ class StageZeroRatio(STXSBaseModel):
         # raise RuntimeError, "No production process matching %s for Stage0 found !"%production
         print("WARNING: No production process matching %s for Stage0 found, will scale by 1 !" % production)
         return 1
+
+class StageZeroRunningmb(STXSBaseModel):
+    "Allow different signal strength fits for the stage-0 model, for measuring running b quark mass"
+
+    def __init__(self, denominator="WW"):
+        STXSBaseModel.__init__(self)  # not using 'super(x,self).__init__' since I don't understand it
+        self.denominator = denominator
+        self.POIs = ""
+
+    def doVar(self, x, constant=True):
+        self.modelBuilder.doVar(x)
+        vname = re.sub(r"\[.*", "", x)
+        self.modelBuilder.out.var(vname).setConstant(constant)
+        print("SignalStrengths:: declaring %s as %s" % (vname, x))
+
+    def doParametersOfInterest(self):
+        """Create POI out of signal strengths (and MH)"""
+        pois = []
+
+        allProds = []
+        for regproc in ALL_STXS_PROCS["Stage0"].keys():
+            P = ALL_STXS_PROCS["Stage0"][regproc]
+            if P in allProds:
+                continue
+            allProds.append(P)
+            for dec in SM_HIGG_DECAYS:
+                D = CMS_to_LHCHCG_DecSimple[dec]
+                if D == self.denominator:
+                    if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
+                        self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
+                        pois.append("mu_XS_%s_x_BR_%s" % (P, self.denominator))
+                else:
+                    if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
+                        self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
+                        pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
+        self.doVar("mb[2.787,0,5]")
+        pois.append("mb")
+                        #Need to reparameterize Gammabb/GammaZZ as Gammabb/GammaZZ*(1+sum an((mb/2.787)^n-1))
+                        #with a1= -0.07086, a2=1.144, a3=-0.1361, a4=0.06038, a5=-0.01167. Gammabb/GammaZZsm =22 (do we need it?)
+
+        print(pois)
+        self.POIs = ",".join(pois)
+
+        self.doMH()
+        print("Default parameters of interest: ", self.POIs)
+        self.modelBuilder.doSet("POI", self.POIs)
+        self.SMH = SMHiggsBuilder(self.modelBuilder)
+        self.setup()
+
+    def setup(self):
+        for d in SM_HIGG_DECAYS + ["hss"]:
+            self.SMH.makeBR(d)
+        allProds = []
+        for regproc in ALL_STXS_PROCS["Stage0"].keys():
+            P = ALL_STXS_PROCS["Stage0"][regproc]
+            if P in allProds:
+                continue
+            allProds.append(P)
+            allDecs = []
+            for dec in SM_HIGG_DECAYS:
+                D = CMS_to_LHCHCG_DecSimple[dec]
+                if D in allDecs:
+                    continue
+                allDecs.append(D)
+                if D == self.denominator:
+                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0",' + muXSBR + ")")
+                elif D =="bb":
+                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
+                else:
+                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                    muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
+                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
+
+
+    def getHiggsSignalYieldScale(self, production, decay, energy):
+        for regproc in ALL_STXS_PROCS["Stage0"].keys():
+            if fnmatch.fnmatch(production, regproc):
+                return "scaling_%s_%s_%s" % (
+                    ALL_STXS_PROCS["Stage0"][regproc],
+                    decay,
+                    energy,
+                )
+
+        # raise RuntimeError, "No production process matching %s for Stage0 found !"%production
+        print("WARNING: No production process matching %s for Stage0 found, will scale by 1 !" % production)
+        return 1
+
 
 
 class StageOnePTwo(STXSBaseModel):
@@ -611,5 +702,6 @@ class StageOnePTwoRatio(STXSBaseModel):
 
 stage0 = StageZero()
 stage0RatioZZ = StageZeroRatio("ZZ")
+stage0mbb = StageZeroRunningmb("ZZ")
 stage12 = StageOnePTwo()
 stage12RatioZZ = StageOnePTwoRatio("ZZ")
