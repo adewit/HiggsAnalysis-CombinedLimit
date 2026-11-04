@@ -328,7 +328,10 @@ class StageZeroRunningmb(STXSBaseModel):
         print("Default parameters of interest: ", self.POIs)
         self.modelBuilder.doSet("POI", self.POIs)
         self.SMH = SMHiggsBuilder(self.modelBuilder)
+        
+
         self.setup()
+
 
     def setup(self):
         for d in SM_HIGG_DECAYS + ["hss"]:
@@ -350,7 +353,9 @@ class StageZeroRunningmb(STXSBaseModel):
                     self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0",' + muXSBR + ")")
                 elif D =="bb":
                     muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
+                    #self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
+                    datadir = os.environ["CMSSW_BASE"] + "/src/HiggsAnalysis/CombinedLimit/data/lhc-hxswg"
+                    self.SMH.textToSpline("scaling_" + P + "_" + D + '_13TeV', os.path.join(datadir,"sm/mbparam.txt")) ## ycol=xxx
                 else:
                     muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
                     muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
