@@ -285,7 +285,7 @@ class StageZeroRatio(STXSBaseModel):
 class StageZeroRunningmb(STXSBaseModel):
     "Allow different signal strength fits for the stage-0 model, for measuring running b quark mass"
 
-    def __init__(self, denominator="ZZ"):
+    def __init__(self, denominator="ZZ", profileBR=False):
         STXSBaseModel.__init__(self)  # not using 'super(x,self).__init__' since I don't understand it
         self.denominator = denominator
         self.POIs = ""
@@ -312,15 +312,15 @@ class StageZeroRunningmb(STXSBaseModel):
             allProds.append(P)
             for dec in SM_HIGG_DECAYS:
                 D = CMS_to_LHCHCG_DecSimple[dec]
-                continue ## ## Do I need this? 
-                if D == self.denominator:
-                    if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
-                        self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
-                        pois.append("mu_XS_%s_x_BR_%s" % (P, self.denominator))
-                else:
-                    if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
-                        self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
-                        pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
+                if profileBR:
+                    if D == self.denominator:
+                        if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
+                            self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
+                            pois.append("mu_XS_%s_x_BR_%s" % (P, self.denominator))
+                    else:
+                        if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
+                            self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
+                            pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
 
         self.doVar("mb[2.787,0,5]")
         pois.append("mb")
@@ -369,12 +369,15 @@ class StageZeroRunningmb(STXSBaseModel):
             self.SMH.textToSpline("Gamma_tot_SM", self.mbparam, ycol=12,xvar="mb")
 
     def setup(self):
-
-        makeWidth("tot")
+        
+        if not profileBR:
+            makeWidth("tot")
 
         for d in SM_HIGG_DECAYS + ["hss"]:
-            #self.SMH.makeBR(d) ## do I need the BR ?
-            self.makeWidth(d)
+            if not profileBR or d == 'hbb':
+                self.makeWidth(d)
+            if profileBR:
+                self.SMH.makeBR(d) ## do I need the BR ?
         allProds = []
 
 #SM_HIGG_DECAYS = ["hww", "hzz", "hgg", "htt", "hbb", "hzg", "hmm", "hcc", "hgluglu"]
@@ -393,17 +396,26 @@ class StageZeroRunningmb(STXSBaseModel):
                 if D in allDecs:
                     continue
                 allDecs.append(D)
-                if D == self.denominator:
-                    ## GammaZ o GammaTot
-                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
-                else: #D =="bb":
-                    #muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                    #self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
-                    self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+D+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
-                #else:
-                #    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                #    muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
-                #    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
+                if profileBR:
+                    if D == self.denominator:
+                        ## GammaZ o GammaTot
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0",'+muXSBR+',)')
+                    elif D =="bb":
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        #self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1",gamma_'+D+'_o_hzz_SM, '+muXSBR+')')
+                    else:
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
+
+                else: ## not profileBR
+                    if D == self.denominator:
+                        ## GammaZ o GammaTot
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
+                    else: #D =="bb":
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+D+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
 
 
     def getHiggsSignalYieldScale(self, production, decay, energy):
@@ -752,5 +764,6 @@ class StageOnePTwoRatio(STXSBaseModel):
 stage0 = StageZero()
 stage0RatioZZ = StageZeroRatio("ZZ")
 stage0mbb = StageZeroRunningmb("ZZ")
+stage0mbbv2 = StageZeroRunningmb("ZZ",profileBR=False)
 stage12 = StageOnePTwo()
 stage12RatioZZ = StageOnePTwoRatio("ZZ")
