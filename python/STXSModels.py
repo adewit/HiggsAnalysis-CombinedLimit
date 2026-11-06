@@ -384,7 +384,7 @@ class StageZeroRunningmb(STXSBaseModel):
 
 #SM_HIGG_DECAYS = ["hww", "hzz", "hgg", "htt", "hbb", "hzg", "hmm", "hcc", "hgluglu"]
         for dec in SM_HIGG_DECAYS + ["hss"]:
-            D = CMS_toLHCHCG_DecSimple[dec]
+            D = CMS_to_LHCHCG_DecSimple[dec]
 
 
         for regproc in ALL_STXS_PROCS["Stage0"].keys():
