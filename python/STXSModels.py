@@ -7,6 +7,7 @@ import re
 from HiggsAnalysis.CombinedLimit.PhysicsModel import *
 from HiggsAnalysis.CombinedLimit.SMHiggsBuilder import SMHiggsBuilder
 import six
+import os
 
 ALL_STXS_PROCS = {
     "Stage0": {
@@ -293,6 +294,7 @@ class StageZeroRunningmb(STXSBaseModel):
             raise ValueError("Denominator is different from ZZ. Check if implementation is ok.")
         datadir = os.environ["CMSSW_BASE"] + "/src/HiggsAnalysis/CombinedLimit/data/lhc-hxswg"
         self.mbparam =os.path.join(datadir,"sm/mbparam.txt")
+        self.profileBR=profileBR
 
     def doVar(self, x, constant=True):
         self.modelBuilder.doVar(x)
@@ -312,7 +314,7 @@ class StageZeroRunningmb(STXSBaseModel):
             allProds.append(P)
             for dec in SM_HIGG_DECAYS:
                 D = CMS_to_LHCHCG_DecSimple[dec]
-                if profileBR:
+                if self.profileBR:
                     if D == self.denominator:
                         if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
                             self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
@@ -370,13 +372,13 @@ class StageZeroRunningmb(STXSBaseModel):
 
     def setup(self):
         
-        if not profileBR:
-            makeWidth("tot")
+        if not self.profileBR:
+            self.makeWidth("tot")
 
         for d in SM_HIGG_DECAYS + ["hss"]:
-            if not profileBR or d == 'hbb':
+            if not self.profileBR or d == 'hbb':
                 self.makeWidth(d)
-            if profileBR:
+            if self.profileBR:
                 self.SMH.makeBR(d) ## do I need the BR ?
         allProds = []
 
@@ -396,7 +398,7 @@ class StageZeroRunningmb(STXSBaseModel):
                 if D in allDecs:
                     continue
                 allDecs.append(D)
-                if profileBR:
+                if self.profileBR:
                     if D == self.denominator:
                         ## GammaZ o GammaTot
                         muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
@@ -410,7 +412,7 @@ class StageZeroRunningmb(STXSBaseModel):
                         muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
                         self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
 
-                else: ## not profileBR
+                else: ## not self.profileBR
                     if D == self.denominator:
                         ## GammaZ o GammaTot
                         self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
