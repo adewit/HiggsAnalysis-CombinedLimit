@@ -36,6 +36,7 @@ CMS_to_LHCHCG_DecSimple = {
     "hzg": "Zgam",
     "hgluglu": "gluglu",
     "hinv": "inv",
+    "hss": "ss",
 }
 
 
@@ -417,7 +418,8 @@ class StageZeroRunningmb(STXSBaseModel):
                         ## GammaZ o GammaTot
                         self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
                     else: #D =="bb":
-                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+D+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
+                        print("Factory statement", "expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+dec+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+dec+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
 
 
     def getHiggsSignalYieldScale(self, production, decay, energy):
