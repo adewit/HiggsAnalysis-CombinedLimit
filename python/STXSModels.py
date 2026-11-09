@@ -368,7 +368,7 @@ class StageZeroRunningmb(STXSBaseModel):
         if decay == "htoptop":
             pass
             #self.SMH.textToSpline("gamma_hgluglu_o_hzz_SM", self.mbparam, ycol=8)
-        if decay == "tot":
+        if decay == "tot": ## in the spline this is Gamma_tot / Gamma_ZZ vs SM
             self.SMH.textToSpline("Gamma_tot_SM", self.mbparam, ycol=12,xvar="mb")
 
     def setup(self):
@@ -415,11 +415,13 @@ class StageZeroRunningmb(STXSBaseModel):
 
                 else: ## not self.profileBR
                     if D == self.denominator:
-                        ## GammaZ o GammaTot
-                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
+                        ## GammaZ o GammaTot . Gamma_tot is actually Gamma_tot_o_Gamma_ZZ in the splines
+                        #self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",Gamma_hzz_SM,Gamma_tot_SM)')
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("1./@0",Gamma_tot_SM)')
                     else: #D =="bb":
-                        print("Factory statement", "expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+dec+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
-                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+dec+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
+                        ## gamma_hbb_o_hzz_SM * Gamma_ZZ / Gamma_tot
+                        #self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1/@2",gamma_'+dec+'_o_hzz_SM, Gamma_hzz_SM,Gamma_tot_SM)')
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0/@1",gamma_'+dec+'_o_hzz_SM,Gamma_tot_SM)')
 
 
     def getHiggsSignalYieldScale(self, production, decay, energy):
