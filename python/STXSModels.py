@@ -7,6 +7,7 @@ import re
 from HiggsAnalysis.CombinedLimit.PhysicsModel import *
 from HiggsAnalysis.CombinedLimit.SMHiggsBuilder import SMHiggsBuilder
 import six
+import os
 
 ALL_STXS_PROCS = {
     "Stage0": {
@@ -35,6 +36,7 @@ CMS_to_LHCHCG_DecSimple = {
     "hzg": "Zgam",
     "hgluglu": "gluglu",
     "hinv": "inv",
+    "hss": "ss",
 }
 
 
@@ -285,10 +287,19 @@ class StageZeroRatio(STXSBaseModel):
 class StageZeroRunningmb(STXSBaseModel):
     "Allow different signal strength fits for the stage-0 model, for measuring running b quark mass"
 
-    def __init__(self, denominator="WW"):
+    def __init__(self, denominator="ZZ", profileBR=False, parametrizeXS=False):
         STXSBaseModel.__init__(self)  # not using 'super(x,self).__init__' since I don't understand it
         self.denominator = denominator
         self.POIs = ""
+        if self.denominator != 'ZZ':
+            raise ValueError("Denominator is different from ZZ. Check if implementation is ok.")
+        datadir = os.environ["CMSSW_BASE"] + "/src/HiggsAnalysis/CombinedLimit/data/lhc-hxswg"
+        self.mbparam =os.path.join(datadir,"sm/mbparam.txt")
+        self.profileBR=profileBR
+        self.parametrizeXS = parametrizeXS
+
+        if self.profileBR and self.parametrizeXS:
+            raise ValueError("parametrizeXS => not profiling BR")
 
     def doVar(self, x, constant=True):
         self.modelBuilder.doVar(x)
@@ -306,34 +317,99 @@ class StageZeroRunningmb(STXSBaseModel):
             if P in allProds:
                 continue
             allProds.append(P)
+            if not self.profileBR:
+                print("Doing poi:","mu_XS_%s[1,0,5]"%P)
+                self.doVar("mu_XS_%s[1,0,5]"%P)
+                pois.append("mu_XS_%s"%P)
             for dec in SM_HIGG_DECAYS:
                 D = CMS_to_LHCHCG_DecSimple[dec]
-                if D == self.denominator:
-                    if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
-                        self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
-                        pois.append("mu_XS_%s_x_BR_%s" % (P, self.denominator))
-                else:
-                    if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
-                        self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
-                        pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
+                if self.profileBR:
+                    if D == self.denominator:
+                        if not "mu_XS_%s_x_BR_%s" % (P, self.denominator) in pois:
+                            print ( "Doing POI","mu_XS_%s_x_BR_%s" % (P, self.denominator))
+                            self.doVar("mu_XS_%s_x_BR_%s[1,0,5]" % (P, self.denominator))
+                            pois.append("mu_XS_%s_x_BR_%s" % (P, self.denominator))
+                    else:
+                        if not "mu_BR_%s_r_BR_%s" % (D, self.denominator) in pois:
+                            print("Doing POI","mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
+                            self.doVar("mu_BR_%s_r_BR_%s[1,0,5]" % (D, self.denominator))
+                            pois.append("mu_BR_%s_r_BR_%s" % (D, self.denominator))
+
         self.doVar("mb[2.787,0,5]")
         pois.append("mb")
                         #Need to reparameterize Gammabb/GammaZZ as Gammabb/GammaZZ*(1+sum an((mb/2.787)^n-1))
                         #with a1= -0.07086, a2=1.144, a3=-0.1361, a4=0.06038, a5=-0.01167. Gammabb/GammaZZsm =22 (do we need it?)
 
-        print(pois)
+        print("POIs=",pois)
         self.POIs = ",".join(pois)
 
         self.doMH()
         print("Default parameters of interest: ", self.POIs)
         self.modelBuilder.doSet("POI", self.POIs)
         self.SMH = SMHiggsBuilder(self.modelBuilder)
+        
+
         self.setup()
+    
+        #cat ../data/lhc-hxswg/sm/mbparam.txt
+        # 0        1            2          3              4                     5                     6               7                 8                 9                         10                    11       
+        # mb_gev width_zz_gev zz_vs_ref bb_over_zz_vs_ref tautau_over_zz_vs_ref mumu_over_zz_vs_ref ss_over_zz_vs_ref cc_over_zz_vs_ref gg_over_zz_vs_ref gammagamma_over_zz_vs_ref zgamma_over_zz_vs_ref ww_over_zz_vs_ref total_over_zz_vs_ref
+    def makeWidth(self, decay):
+        if decay == "hww":
+            print("Spline: gamma_hww_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hww_o_hzz_SM", self.mbparam, ycol=11, xvar="mb")
+        if decay == "hzz":
+            print("Spline: Gamma_hzz_SM")
+            self.SMH.textToSpline("Gamma_hzz_SM", self.mbparam, ycol=2,xvar="mb") ## capital Gamma is 
+        if decay == "hgg": ## gamma gamma - not gluon-gluon
+            print("Spline: gamma_hgg_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hgg_o_hzz_SM", self.mbparam, ycol=9,xvar="mb")
+        if decay == "hzg":
+            print("Spline: gamma_hzg_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hzg_o_hzz_SM", self.mbparam, ycol=10,xvar="mb")
+        if decay == "hbb":
+            print("Spline: gamma_hbb_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hbb_o_hzz_SM", self.mbparam, ycol=3,xvar="mb")
+        if decay == "htt":
+            print("Spline: gamma_htt_o_hzz_SM")
+            self.SMH.textToSpline("gamma_htt_o_hzz_SM", self.mbparam, ycol=4,xvar="mb")
+        if decay == "hmm":
+            print("Spline: gamma_hmm_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hmm_o_hzz_SM", self.mbparam, ycol=5,xvar="mb")
+        if decay == "hss":
+            print("Spline: gamma_hss_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hss_o_hzz_SM", self.mbparam, ycol=6,xvar="mb")
+        if decay == "hcc":
+            print("Spline: gamma_hcc_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hcc_o_hzz_SM", self.mbparam, ycol=7,xvar="mb")
+        if decay == "hgluglu":
+            print("Spline: gamma_hgluglu_o_hzz_SM")
+            self.SMH.textToSpline("gamma_hgluglu_o_hzz_SM", self.mbparam, ycol=8,xvar="mb")
+        if decay == "htoptop":
+            pass
+            #self.SMH.textToSpline("gamma_hgluglu_o_hzz_SM", self.mbparam, ycol=8)
+        if decay == "tot": ## in the spline this is Gamma_tot / Gamma_ZZ vs SM.
+            print("Spline: gamma_tot_o_hzz_SM")
+            self.SMH.textToSpline("gamma_tot_o_hzz_SM", self.mbparam, ycol=12,xvar="mb")
 
     def setup(self):
+        print("[StageZeroRunningmb], profileBR=",self.profileBR)
+        
+        if not self.profileBR:
+            self.makeWidth("tot")
+
         for d in SM_HIGG_DECAYS + ["hss"]:
-            self.SMH.makeBR(d)
+            if not self.profileBR or d == 'hbb':
+                self.makeWidth(d)
+            if self.profileBR:
+                self.SMH.makeBR(d) ## do I need the BR ?
         allProds = []
+
+#SM_HIGG_DECAYS = ["hww", "hzz", "hgg", "htt", "hbb", "hzg", "hmm", "hcc", "hgluglu"]
+        for dec in SM_HIGG_DECAYS + ["hss"]:
+            D = CMS_to_LHCHCG_DecSimple[dec]
+
+
         for regproc in ALL_STXS_PROCS["Stage0"].keys():
             P = ALL_STXS_PROCS["Stage0"][regproc]
             if P in allProds:
@@ -345,16 +421,35 @@ class StageZeroRunningmb(STXSBaseModel):
                 if D in allDecs:
                     continue
                 allDecs.append(D)
-                if D == self.denominator:
-                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0",' + muXSBR + ")")
-                elif D =="bb":
-                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
-                else:
-                    muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
-                    muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
-                    self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
+                if self.profileBR:
+                    if D == self.denominator:
+                        ## GammaZ o GammaTot
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0",'+muXSBR+',)')
+                    elif D =="bb":
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        #self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*(1-0.07086*@1/2.787-1 + 1.144*(pow((@1/2.787),2)-1) -0.1361*(pow((@1/2.787),3)-1) + 0.06038*(pow((@1/2.787),4)-1) - 0.01167*(pow((@1/2.787),5)-1))",' + muXSBR + "," + "mb" + ")")
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@1",gamma_'+dec+'_o_hzz_SM, '+muXSBR+')')
+                    else:
+                        muXSBR = "mu_XS_%s_x_BR_%s" % (P, self.denominator)
+                        muBR = "mu_BR_%s_r_BR_%s" % (D, self.denominator)
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0*@1",' + muXSBR + "," + muBR + ")")
+
+                elif not self.parametrizeXS: ## not self.profileBR
+                    if D == self.denominator:
+                        ## GammaZ o GammaTot . Gamma_tot is actually Gamma_tot_o_Gamma_ZZ in the splines
+                        self.modelBuilder.factory_("expr::scaling_" + P + "_" + D + '_13TeV("@0/@1",mu_XS_'+P+',gamma_tot_o_hzz_SM)')
+                    else: #D =="bb":
+                        ## gamma_hbb_o_hzz_SM * Gamma_ZZ / Gamma_tot
+                        self.modelBuilder.factory_("expr::scaling_"+ P + "_" + D + '_13TeV("@0*@2/@1",gamma_'+dec+'_o_hzz_SM,gamma_tot_o_hzz_SM,mu_XS_'+P+')')
+                else:  ## NOT profileBR and parametrizeXS
+                    raise ValueError("NOT IMPLEMENTED")
+                    if D == self.denominator:
+                        #self.SMH.makeScaling(P,Cb='',Ctop='1',CW='',CZ='',Ctau='',Cc='')
+                        ## I can use th ggH parametrization
+                        pass
+                    else: #D="bb"
+                        pass
 
 
     def getHiggsSignalYieldScale(self, production, decay, energy):
@@ -703,5 +798,6 @@ class StageOnePTwoRatio(STXSBaseModel):
 stage0 = StageZero()
 stage0RatioZZ = StageZeroRatio("ZZ")
 stage0mbb = StageZeroRunningmb("ZZ")
+stage0mbbv2 = StageZeroRunningmb("ZZ",profileBR=True)
 stage12 = StageOnePTwo()
 stage12RatioZZ = StageOnePTwoRatio("ZZ")
